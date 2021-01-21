@@ -182,7 +182,7 @@ def dateChange(date):
 
 def todayDate():
 
-	ts = datetime.utcnow() - timedelta(minutes=120)
+	ts = datetime.utcnow() - timedelta(minutes=15)
 
 	year = ts.strftime("%Y")
 	month = ts.strftime("%m")
