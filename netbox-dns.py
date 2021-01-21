@@ -2,12 +2,11 @@
 
 '''
 ************************************************************
-This script is used to pull the available devices from 
-Netbox and place them into their appropriate groups within
-Rancid.  
+This script is used to pull new IPAM entries from Netbox 
+and create corresponding entries into Windows DNS.    
 
 Author: Charles Allen
-Date: 12 May 2020
+Date: 21 Jan 2020
 ************************************************************
 '''
 
@@ -118,9 +117,7 @@ class AddDNS():
 
 		#Determine if there was a change for both the hostname and IP address
 		if (new_entry['dns_name'] != old_entry['dns_name'] and new_entry['ip_addr'] != old_entry['ip_addr']):
-			#print ("Update: {}:{} --> {}:{}".format(old_entry['dns_name'],old_entry['ip_addr'],
-			#										new_entry['dns_name'],new_entry['ip_addr']))
-
+			
 			#Delete Old Entry
 			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
@@ -129,8 +126,6 @@ class AddDNS():
 
 		#Was there only a change with the hostname
 		elif (new_entry['dns_name'] != old_entry['dns_name']):
-			#print ("Update: {} --> {}".format(old_entry['dns_name'],new_entry['dns_name']))
-
 			#Delete Old Entry
 			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
@@ -139,8 +134,6 @@ class AddDNS():
 
 		#Was there only a change with the IP Address
 		elif (new_entry['ip_addr'] != old_entry['ip_addr']):
-			#print ("Update: {} --> {}".format(old_entry['ip_addr'],new_entry['ip_addr']))
-
 			#Delete Old Entry
 			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
@@ -298,8 +291,8 @@ def procOutput(output):
 						obj_chg_time=objChgTime, ip_addr=ipAddr, action=theAction)
 	
 	writer.sortList()
-	#writer.processList()
-	writer.testProcess()
+	writer.processList()
+	#writer.testProcess()
 
 #***************************************
 #		MAIN ROUTINE
