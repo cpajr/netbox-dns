@@ -34,6 +34,7 @@ api_url_host = config.api_url_host
 api_url_base = config.api_url_base
 api_url_base_suffix = config.api_url_base_suffix
 zone_name = config.zone_name
+dns_server = config.dns_server
 
 #***************************************
 #		CLASSES
@@ -207,10 +208,10 @@ def dnsCmd(dns_name, ip_addr, action):
 	returnCode = 0
 
 	if (action == "Created"):
-		cmd = "Add-DnsServerResourceRecordA -ComputerName midwsdc2 -Name \"{}\" -ZoneName \"zagg.local\" -IPv4Address \"{}\" -CreatePtr".format(dns_name,ip_addr)
+		cmd = "Add-DnsServerResourceRecordA -ComputerName {} -Name \"{}\" -ZoneName \"{}\" -IPv4Address \"{}\" -CreatePtr".format(dns_server,dns_name,zone_name,ip_addr)
 		runPwshCmd(cmd)
 	elif (action == "Deleted"):
-		cmd = "Remove-DnsServerResourceRecord -ComputerName midwsdc2 -ZoneName \"zagg.local\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_name,ip_addr)
+		cmd = "Remove-DnsServerResourceRecord -ComputerName {} -ZoneName \"{}\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_server,zone_name,dns_name,ip_addr)
 		runPwshCmd(cmd)
 	else:
 		logging.critical("Unexpected action in dnsCmd: {}-{}-{}".format(dns_name, ip_addr, action))
@@ -230,7 +231,6 @@ def procDnsName(dns_name):
 		return re.sub(r'\.'+re.escape(zone_name),'',dns_name)
 
 	else:
-		print ("In ELSE: {}".format(dns_name))
 		return dns_name
 
 def removeCidr(ip_addr):
@@ -277,6 +277,9 @@ def procOutput(output):
 
 	if (output['count'] != 0):
 		for i in output['results']:
+
+			if (i['object_data']['status'] != 'active'):
+				continue
 
 			changeID = i['id']
 			objID = i['changed_object_id']
