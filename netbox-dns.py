@@ -280,8 +280,8 @@ def procOutput(output):
 						obj_chg_time=objChgTime, ip_addr=ipAddr, action=theAction)
 	
 	writer.sortList()
-	#writer.processList()
-	writer.testProcess()
+	writer.processList()
+	#writer.testProcess()
 
 #***************************************
 #		MAIN ROUTINE
