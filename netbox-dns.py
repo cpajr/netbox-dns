@@ -97,7 +97,9 @@ class AddDNS():
 		param2 = "&changed_object_type=ipam.ipaddress"
 		param3 = "&time_before=" + dateChange(new_entry['obj_chg_time'])
 
-		url = createUrl(base_url + param1 + param2 + param3)
+		#url = createUrl(base_url + param1 + param2 + param3)
+		url = createUrl(base_url + param1 + param2)
+		print(url)
 		output = apiCall(headers=createHeader(), api_url=url)
 		tmpOutput = output['results'][0]
 		
@@ -116,30 +118,36 @@ class AddDNS():
 		We need to do some comparison between the old entry and new
 		'''
 
-		#Determine if there was a change for both the hostname and IP address
-		if (new_entry['dns_name'] != old_entry['dns_name'] and new_entry['ip_addr'] != old_entry['ip_addr']):
+		#Delete Old Entry
+		dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
+
+		#Recreate New Entry
+		dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
+
+		# #Determine if there was a change for both the hostname and IP address
+		# if (new_entry['dns_name'] != old_entry['dns_name'] and new_entry['ip_addr'] != old_entry['ip_addr']):
 			
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
+		# 	#Delete Old Entry
+		# 	dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
+		# 	#Recreate New Entry
+		# 	dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
 
-		#Was there only a change with the hostname
-		elif (new_entry['dns_name'] != old_entry['dns_name']):
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
+		# #Was there only a change with the hostname
+		# elif (new_entry['dns_name'] != old_entry['dns_name']):
+		# 	#Delete Old Entry
+		# 	dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
+		# 	#Recreate New Entry
+		# 	dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
 
-		#Was there only a change with the IP Address
-		elif (new_entry['ip_addr'] != old_entry['ip_addr']):
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
+		# #Was there only a change with the IP Address
+		# elif (new_entry['ip_addr'] != old_entry['ip_addr']):
+		# 	#Delete Old Entry
+		# 	dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
 
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
+		# 	#Recreate New Entry
+		# 	dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
 
 #***************************************
 #		METHODS
