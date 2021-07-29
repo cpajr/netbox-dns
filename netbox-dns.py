@@ -6,7 +6,7 @@ This script is used to pull new IPAM entries from Netbox
 and create corresponding entries into Windows DNS.    
 
 Author: Charles Allen
-Date: 21 Jan 2020
+Date: 29 Jul 2021
 ************************************************************
 '''
 
