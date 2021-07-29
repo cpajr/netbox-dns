@@ -195,7 +195,7 @@ def procOutput(output):
 
 def todayDate():
 
-	ts = datetime.utcnow() - timedelta(minutes=180)
+	ts = datetime.utcnow() - timedelta(minutes=10)
 
 	year = ts.strftime("%Y")
 	month = ts.strftime("%m")
