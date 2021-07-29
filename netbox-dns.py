@@ -10,7 +10,6 @@ Date: 21 Jan 2020
 ************************************************************
 '''
 
-
 import json
 import requests
 import os
@@ -34,165 +33,84 @@ api_url_host = config.api_url_host
 api_url_base = config.api_url_base
 api_url_base_suffix = config.api_url_base_suffix
 zone_name = config.zone_name
+dns_server = config.dns_server
 
 #***************************************
 #		CLASSES
 #***************************************
 
-class AddDNS():
+class NetboxObjects():
 	
 	def __init__(self):
 		self.list_entries = []
 
-	def add(self,change_id,obj_id,changelog_time,obj_chg_time,dns_name,ip_addr,action):
+	def add(self,change_id,obj_id,action,prechange_data,postchange_data):
 
-		#Execute checks on the incoming data
-		if (isIntIpAddr(ip_addr=ip_addr, obj_id=obj_id) and dns_name != ""):
+
+		if((action == "create" or action == "update") and postchange_data['address'] == ""):
+			pass
+		elif (action == "create" and not checkIpAddr(postchange_data['address'],obj_id)):
+			pass
+		elif (action == "update" and not checkIpAddr(postchange_data['address'],obj_id)):
+			pass
+		elif (action == "delete" and not checkIpAddr(prechange_data['address'],obj_id)):
+			pass
+		else:
 			self.list_entries.append(
-							{'change_id':change_id, 
-							'obj_id':obj_id, 
-							'changelog_time':changelog_time, 
-							'dns_name':procDnsName(dns_name), 
-							'obj_chg_time':obj_chg_time,
-							'ip_addr': removeCidr(ip_addr), 
-							'action':action })
+				{'change_id':change_id, 
+				'obj_id':obj_id,  
+				'action':action,
+				'prechange_data':prechange_data,
+				'postchange_data': postchange_data})
 
 	def print(self):
 
 		print ("****************Begin List****************")
 		for entry in self.list_entries:
 			print (entry)
+			print("+++++++++++++++++++++++++++++++++++++++++\n")
 		print ("****************End List****************")
 
-	def sortList(self):
-		'''
-		This function simply sorts the list in reverse order.  
-		'''
-		self.list_entries = sorted(self.list_entries,key = lambda i: i['changelog_time'])
+	def processList(self,testFlag = False):
 
-	def testProcess(self):
-		for entry in self.list_entries:
-			if (entry['action'] == 'Created' and not dnsEntryExist(hostname=entry['dns_name'])):
-				print ("Created: {}".format(entry['dns_name']))
-			elif (entry['action'] == 'Deleted'):
-				print ("Deleted: {}".format(entry['dns_name']))
-			elif (entry['action'] == 'Updated'):
-				print ("Updated: {}:{}".format(entry['dns_name'],entry['ip_addr']))
-	def processList(self):
-		for entry in self.list_entries:
-
-			if (entry['action'] == 'Created' and not dnsEntryExist(hostname=entry['dns_name'])):
-				dnsCmd(dns_name=entry['dns_name'], ip_addr=entry['ip_addr'], action=entry['action'])
-			elif (entry['action'] == 'Deleted'):
-				dnsCmd(dns_name=entry['dns_name'], ip_addr=entry['ip_addr'], action=entry['action'])
-			elif (entry['action'] == 'Updated'):
-				self.processUpdate(entry)
-
-	def processUpdate(self, new_entry):
-
-		#First, need to query API for the next most recent change
-		base_url = "/api/extras/object-changes/?"
-		param1 = "changed_object_id=" + str(new_entry['obj_id'])
-		param2 = "&changed_object_type=ipam.ipaddress"
-		param3 = "&time_before=" + dateChange(new_entry['obj_chg_time'])
-
-		url = createUrl(base_url + param1 + param2 + param3)
-		output = apiCall(headers=createHeader(), api_url=url)
-		tmpOutput = output['results'][0]
-		
-		#Format the output into our expected Dictionary style
-		old_entry = returnDict( 
-					obj_id = tmpOutput['changed_object_id'],
-					change_id = tmpOutput['id'],
-					changelog_time = tmpOutput['time'],
-					obj_chg_time = tmpOutput['object_data']['last_updated'],
-					dns_name = tmpOutput['object_data']['dns_name'],
-					ip_addr = tmpOutput['object_data']['address'],
-					action = tmpOutput['action']['label']
+		if (testFlag):
+			for entry in self.list_entries:
+				if (entry['action'] == 'create'):
+					print ("Created: {}".format(entry['postchange_data']['dns_name']))
+				elif (entry['action'] == 'delete'):
+					print ("Deleted: {}".format(entry['prechange_data']['dns_name']))
+				elif (entry['action'] == 'update'):
+					print ("Updated: {}:{}".format(entry['postchange_data']['dns_name'],entry['postchange_data']['address']))
+		else:
+			for entry in self.list_entries:
+				if (entry['action'] == 'create'):
+					dnsCmd(
+						dns_name=reviseDnsName(entry['postchange_data']['dns_name']),
+						ip_addr=removeCidr(entry['postchange_data']['address']),
+						action=entry['action']
 					)
-		
-		'''
-		We need to do some comparison between the old entry and new
-		'''
+				elif (entry['action'] == 'delete'):
+					dnsCmd(
+						dns_name=reviseDnsName(entry['prechange_data']['dns_name']),
+						ip_addr=removeCidr(entry['prechange_data']['address']),
+						action=entry['action']
+					)					
+				elif (entry['action'] == 'update'):
+					dnsCmd(
+						dns_name=reviseDnsName(entry['prechange_data']['dns_name']),
+						ip_addr=removeCidr(entry['prechange_data']['address']),
+						action='delete'
+					)
+					dnsCmd(
+						dns_name=reviseDnsName(entry['postchange_data']['dns_name']),
+						ip_addr=removeCidr(entry['postchange_data']['address']),
+						action='create'
+					)	
 
-		#Determine if there was a change for both the hostname and IP address
-		if (new_entry['dns_name'] != old_entry['dns_name'] and new_entry['ip_addr'] != old_entry['ip_addr']):
-			
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
-
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
-
-		#Was there only a change with the hostname
-		elif (new_entry['dns_name'] != old_entry['dns_name']):
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
-
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
-
-		#Was there only a change with the IP Address
-		elif (new_entry['ip_addr'] != old_entry['ip_addr']):
-			#Delete Old Entry
-			dnsCmd(dns_name=old_entry['dns_name'], ip_addr=old_entry['ip_addr'], action='Deleted')
-
-			#Recreate New Entry
-			dnsCmd(dns_name=new_entry['dns_name'], ip_addr=new_entry['ip_addr'], action='Created')
 
 #***************************************
 #		METHODS
 #***************************************
-def dnsEntryExist(hostname="",ip_addr = ""):
-	if (hostname != ""):
-		try:
-			dns_lookup = socket.gethostbyname(hostname)
-		except socket.gaierror:
-			logging.info('No existing DNS entry for {}:{}'.format(hostname,ip_addr))
-			dns_lookup = ""
-	elif(ip_addr != ""):
-		try:
-			dns_lookup = socket.gethostbyaddr(ip_addr)
-		except socket.gaierror:
-			logging.info('No existing DNS entry for {}:{}'.format(hostname,ip_addr))
-			dns_lookup = ""
-
-	if(dns_lookup == ""):
-		return False
-	else:
-		return True
-
-def returnDict(change_id,obj_id,changelog_time,obj_chg_time,dns_name,ip_addr,action):
-	return { 
-			'change_id':change_id, 
-			'obj_id':obj_id, 
-			'changelog_time':changelog_time, 
-			'obj_chg_time':obj_chg_time,
-			'dns_name':procDnsName(dns_name),
-			'ip_addr': removeCidr(ip_addr), 
-			'action':action 
-			}
-
-def dateChange(date):
-
-	returnDate = date.replace('T','+')
-	returnDate = returnDate.replace(':',"%3A")
-
-	return returnDate
-
-def todayDate():
-
-	ts = datetime.utcnow() - timedelta(minutes=120)
-
-	year = ts.strftime("%Y")
-	month = ts.strftime("%m")
-	day = ts.strftime("%d")
-	hour = ts.strftime("%H")
-	minute = ts.strftime("%M")
-	second = ts.strftime("%S")
-	
-	return "{}-{}-{}+{}%3A{}%3A{}".format(year,month,day,hour,minute,second)
-
 def runPwshCmd(cmd):
 	returnInfo = subprocess.run(["powershell", "-Command", cmd], capture_output=True)
 	
@@ -203,24 +121,41 @@ def runPwshCmd(cmd):
 
 def dnsCmd(dns_name, ip_addr, action):
 
-	#We will act on three different actions: created, updated, and deleted
-	returnCode = 0
-
-	if (action == "Created"):
-		cmd = "Add-DnsServerResourceRecordA -ComputerName midwsdc2 -Name \"{}\" -ZoneName \"zagg.local\" -IPv4Address \"{}\" -CreatePtr".format(dns_name,ip_addr)
+	if (action == "create"):
+		cmd = "Add-DnsServerResourceRecordA -ComputerName {} -Name \"{}\" -ZoneName \"zagg.local\" -IPv4Address \"{}\" -CreatePtr".format(dns_server,dns_name,ip_addr)
+		print (cmd)
 		runPwshCmd(cmd)
-	elif (action == "Deleted"):
-		cmd = "Remove-DnsServerResourceRecord -ComputerName midwsdc2 -ZoneName \"zagg.local\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_name,ip_addr)
+	elif (action == "delete"):
+		cmd = "Remove-DnsServerResourceRecord -ComputerName {} -ZoneName \"zagg.local\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_server,dns_name,ip_addr)
+		print (cmd)
 		runPwshCmd(cmd)
 	else:
 		logging.critical("Unexpected action in dnsCmd: {}-{}-{}".format(dns_name, ip_addr, action))
 
-def procDnsName(dns_name):
+'''
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				Output processing
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'''
 
-	'''
-	It is preferred that the hostname not contain the dns suffix.  This function
-	will remove the DNS suffix.  
-	'''
+def checkIpAddr(ip_addr,obj_id):
+	try:
+		intIpAddr = re.search(r"^(?:10|192).(?:\d{1,3}|168).\d{1,3}.\d{1,3}", ip_addr).group(0)
+	except AttributeError:
+		intIpAddr = ""
+
+	if (intIpAddr != ""):
+		return True
+	else:
+		logging.info('Unexpected IP Address({}) used on obj_id:{}'.format(ip_addr,obj_id))
+		return False
+
+def removeCidr(ip_addr):
+
+	return re.sub(r'\/\d{2}','',ip_addr)
+
+def reviseDnsName(dns_name):
+
 	try:
 		result = re.search(r''+re.escape(zone_name)+'$', dns_name).group(0)
 	except AttributeError:
@@ -230,25 +165,46 @@ def procDnsName(dns_name):
 		return re.sub(r'\.'+re.escape(zone_name),'',dns_name)
 
 	else:
-		print ("In ELSE: {}".format(dns_name))
 		return dns_name
 
-def removeCidr(ip_addr):
+def procOutput(output):
 
-	return re.sub(r'\/\d{2}','',ip_addr)
+	theObjects = NetboxObjects()
 
-def isIntIpAddr(ip_addr,obj_id):
+	if (output['count'] != 0):
 
-	try:
-		intIpAddr = re.search(r"^(?:10|192).(?:\d{1,3}|168).\d{1,3}.\d{1,3}", ip_addr).group(0)
-	except AttributeError:
-		intIpAddr = ""
+		for item in reversed(output['results']):
+			theObjects.add(
+				change_id=item['id'],
+				obj_id=item['changed_object_id'],
+				action=item['action']['value'],
+				prechange_data=item['prechange_data'],
+				postchange_data=item['postchange_data']
+				)
 
-	if (intIpAddr != ""):
-		return True
-	else:
-		logging.info('Public IP Address({}) used on obj_id:{}'.format(ip_addr,obj_id))
-		return False
+		theObjects.processList()
+		#theObjects.print()
+
+
+
+'''
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				API Call Methods
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'''
+
+def todayDate():
+
+	ts = datetime.utcnow() - timedelta(minutes=180)
+
+	year = ts.strftime("%Y")
+	month = ts.strftime("%m")
+	day = ts.strftime("%d")
+	hour = ts.strftime("%H")
+	minute = ts.strftime("%M")
+	second = ts.strftime("%S")
+	
+	return "{}-{}-{}+{}%3A{}%3A{}".format(year,month,day,hour,minute,second)
 
 def createUrl (url=""):
 
@@ -271,28 +227,12 @@ def apiCall(headers, api_url):
 	
 	return json.loads(response.content.decode('utf-8'))
 
-def procOutput(output):
-
-	writer = AddDNS()
-
-	if (output['count'] != 0):
-		for i in output['results']:
-
-			changeID = i['id']
-			objID = i['changed_object_id']
-			changeTime = i['time']
-			objChgTime = i['object_data']['last_updated']
-			ipAddr = i['object_data']['address']
-			dnsName = i['object_data']['dns_name']
-			theAction = i['action']['label']
-
-			writer.add(change_id = changeID, obj_id = objID, 
-						changelog_time = changeTime, dns_name=dnsName, 
-						obj_chg_time=objChgTime, ip_addr=ipAddr, action=theAction)
-	
-	writer.sortList()
-	writer.processList()
-	#writer.testProcess()
+'''
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				Logging
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'''
+#Haven't decided yet if I want to do this or not
 
 #***************************************
 #		MAIN ROUTINE
