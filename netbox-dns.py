@@ -123,11 +123,11 @@ def dnsCmd(dns_name, ip_addr, action):
 
 	if (action == "create"):
 		cmd = "Add-DnsServerResourceRecordA -ComputerName {} -Name \"{}\" -ZoneName \"zagg.local\" -IPv4Address \"{}\" -CreatePtr".format(dns_server,dns_name,ip_addr)
-		print (cmd)
+		#print (cmd)
 		runPwshCmd(cmd)
 	elif (action == "delete"):
 		cmd = "Remove-DnsServerResourceRecord -ComputerName {} -ZoneName \"zagg.local\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_server,dns_name,ip_addr)
-		print (cmd)
+		#print (cmd)
 		runPwshCmd(cmd)
 	else:
 		logging.critical("Unexpected action in dnsCmd: {}-{}-{}".format(dns_name, ip_addr, action))
