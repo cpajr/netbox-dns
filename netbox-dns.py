@@ -249,3 +249,4 @@ def main():
 	logging.info('Finishing script')
 
 if __name__ == "__main__":
+	main()
