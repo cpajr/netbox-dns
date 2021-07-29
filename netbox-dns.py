@@ -117,7 +117,7 @@ def runPwshCmd(cmd):
 	if (returnInfo.returncode != 0):
 		logging.critical("Failed execution of powershell script: {}".format(cmd))
 	else:
-		logging.info("Successful powershell execution")
+		logging.info("Successful powershell execution: {}".format(cmd))
 
 def dnsCmd(dns_name, ip_addr, action):
 
