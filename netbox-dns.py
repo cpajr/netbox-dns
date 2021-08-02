@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 '''
 ************************************************************
@@ -115,22 +115,34 @@ def runPwshCmd(cmd):
 	returnInfo = subprocess.run(["powershell", "-Command", cmd], capture_output=True)
 	
 	if (returnInfo.returncode != 0):
-		logging.critical("Failed execution of powershell script: {}".format(cmd))
+		#logging.critical("Failed execution of powershell script: {}".format(cmd))
+		return False
 	else:
 		logging.info("Successful powershell execution: {}".format(cmd))
+		return True
 
 def dnsCmd(dns_name, ip_addr, action):
 
-	if (action == "create"):
-		cmd = "Add-DnsServerResourceRecordA -ComputerName {} -Name \"{}\" -ZoneName \"zagg.local\" -IPv4Address \"{}\" -CreatePtr".format(dns_server,dns_name,ip_addr)
-		#print (cmd)
+	if (action == "create" and not existDns(dns_name)):
+		cmd = "Add-DnsServerResourceRecordA -ComputerName {} -Name \"{}\" -ZoneName {} -IPv4Address \"{}\" -CreatePtr".format(dns_server,dns_name,zone_name,ip_addr)
 		runPwshCmd(cmd)
-	elif (action == "delete"):
-		cmd = "Remove-DnsServerResourceRecord -ComputerName {} -ZoneName \"zagg.local\" -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_server,dns_name,ip_addr)
-		#print (cmd)
+	elif (action == "delete" and existDns(dns_name)):
+		cmd = "Remove-DnsServerResourceRecord -ComputerName {} -ZoneName {} -RRType \"A\" -Name \"{}\" -RecordData \"{}\" -Force".format(dns_server,zone_name,dns_name,ip_addr)
 		runPwshCmd(cmd)
 	else:
-		logging.critical("Unexpected action in dnsCmd: {}-{}-{}".format(dns_name, ip_addr, action))
+		logging.critical("Unexpected action in dnsCmd: {}::{}::{}".format(dns_name, ip_addr, action))
+
+def existDns(dns_name):
+
+	cmd = "Get-DnsServerResourceRecord -ZoneName {} -Name {} -ComputerName {}".format(zone_name, dns_name, dns_server)
+	if (runPwshCmd(cmd)):
+		#print ("Entry exists")
+		return True
+	else:
+		#print ("Entry doesn't exist")
+		return False
+
+
 
 '''
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -183,9 +195,6 @@ def procOutput(output):
 				)
 
 		theObjects.processList()
-		#theObjects.print()
-
-
 
 '''
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -250,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
 	main()
+>>>>>>> cleanup
