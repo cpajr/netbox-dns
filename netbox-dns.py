@@ -49,6 +49,10 @@ class NetboxObjects():
 
 		if((action == "create" or action == "update") and postchange_data['address'] == ""):
 			pass
+		elif((action == "create" or action == "update") and postchange_data['dns_name'] == ""):
+			pass
+		elif((action == "delete") and prechange_data['dns_name'] == ""):
+			pass
 		elif (action == "create" and not checkIpAddr(postchange_data['address'],obj_id)):
 			pass
 		elif (action == "update" and not checkIpAddr(postchange_data['address'],obj_id)):
@@ -136,10 +140,8 @@ def existDns(dns_name):
 
 	cmd = "Get-DnsServerResourceRecord -ZoneName {} -Name {} -ComputerName {}".format(zone_name, dns_name, dns_server)
 	if (runPwshCmd(cmd)):
-		#print ("Entry exists")
 		return True
 	else:
-		#print ("Entry doesn't exist")
 		return False
 
 
@@ -183,9 +185,8 @@ def procOutput(output):
 
 	theObjects = NetboxObjects()
 
-	if (output['count'] != 0):
-
-		for item in reversed(output['results']):
+	if output:
+		for item in reversed(output):
 			theObjects.add(
 				change_id=item['id'],
 				obj_id=item['changed_object_id'],
@@ -228,13 +229,30 @@ def createHeader():
 
 def apiCall(headers, api_url):
 
-	try:
-		response = requests.get(api_url, headers=headers)
-	except requests.exceptions.RequestException as e:
-		logging.critical("Exception in executing API call {}".format(e))
-		raise SystemExit(e)
-	
-	return json.loads(response.content.decode('utf-8'))
+	keep_going = True 
+	return_output = []
+	while_url = api_url
+
+	while(keep_going):
+		
+		try:
+			response = requests.get(while_url, headers=headers)
+		except requests.exceptions.RequestException as e:
+			logging.critical("Exception in executing API call {}".format(e))
+			raise SystemExit(e)
+		
+		response_json = json.loads(response.content.decode('utf-8'))
+		
+		if response_json['count'] == 0:
+			break
+		elif response_json['next'] == None:
+			keep_going = False
+		else:
+			while_url = response_json['next']
+
+		return_output.extend(response_json['results'])
+
+	return return_output
 
 '''
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
